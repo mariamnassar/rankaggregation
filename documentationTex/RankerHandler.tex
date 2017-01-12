@@ -1,0 +1,116 @@
+\documentclass{article}
+
+
+\usepackage[utf8] {inputenc} 
+\usepackage       [ngerman]{babel}  
+\usepackage[paper=a4paper,top=25mm,bottom=25mm,right=25mm, left=25mm]{geometry}
+\usepackage{amsthm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{hyperref}
+\usepackage{breakurl}
+\usepackage{tikz}
+\usepackage{caption}
+
+
+
+	\title{Ranker Handler}
+	\author{Mariam Nassar}
+	\date{}
+
+\begin{document}
+	\maketitle
+	
+	\section{Introduction}
+	Ranker Handler is a data structure that makes dealing with rankers easier and faster, for rank aggregation proposes.\\
+	It makes possible to get and update the rankings of models, as well as searching for models and testing their existence in the rankers in O(1) by managing 2 hashmaps. They will be described below.\\
+	As these mentioned operations are essential and very frequent in the rank aggregation methods, Ranker Handler makes these methods clearly faster.\\
+	A ranker handler will be created for each ranker at the beginning of every aggregation function. These functions will then deal with the rankers as hashmaps and not as lists anymore, which will save a lot of time, because searching in hashmaps are mainly faster than searching in lists.
+	
+	\section{The datastructure}
+	Ranker Handler for a ranker $rankerList$ consists of:
+	\begin{itemize}
+		\item \textbf{rankerMap}: This is a hashmap, which has the following form:\\
+		$rankerMap = \{(modelId, model): \forall model, modelId = model.modelId\}$.
+		
+		\item \textbf{uniqueModelIDRankingMap}: This is a hashmap, which has the following form:\\
+		$uniqueModelIDRankingMap = \{(uniqueModelId, ranking): \forall model:\\
+		 uniqueModelId = model.uniqueModelId, 
+		ranking = rankerList.getIndexOf(model)+1 \}$.\\
+	    (If indexing starts with 0 in $rankerList$).
+	    
+	    \item \textbf{uniqueModelIDList} : This is a list of the model Ids which respects the order given in rankerList. 
+	    $uniqueModelIDList = \{uniqueModelId: \forall model, uniqueModelId = model.uniqueModelId \}$ and\\
+	    $\forall model \in rankerList,  uniqueModelId = model.uniqueModelId : \\
+	    rankerList.getIndexOf(model) = modelIDList.getIndexOf(uniqueModelId) $		
+	\end{itemize}	  
+	
+	\section{The methods}
+	
+	\begin{itemize}
+		\item \textbf{The constructor RankerHandler(rankerList):}\\
+		- Returns a Ranker Handler for $rankerList$ by creating the hashmaps and the list explained above.\\
+		- For every $model$ in $rankerList$ with $uniqueModelId = model.uniqueModelId$\\(in the given order) it adds:\\
+		$(uniqueModelId, model)$ to $rankerMap$,\\
+		$(uniqueModelId, ranking)$ to $uniqueModelIDRankingMap$ and
+		$uniqueModelId$ to $uniqueModelIDList$\\
+		- Complexity: $O(n)$.
+		
+		\item \textbf{getLength()}\\
+		- Returns the number of models in $rankerList$, $= uniqueModelIDList.size$.\\
+		- Complexity: $O(1)$.
+		
+		\item \textbf{getRankingByUniqueModelID(uniqueModelId)}\\	
+		- Returns the ranking of $model$ in $rankerList$ with $uniqueModelID = model.uniqueModelID$ if $rankerList$ contains $model$ and $-1$ otherwise.\\
+		- It looks for the value of the key $uniqueModelID$ in $uniqueModelIDRankingMap$.\\		
+		- Complexity: $O(1)$.
+		
+		\item \textbf{containsByUniqueModelID(modelID)}\\
+		- Returns $true$ if $rankerList$ contains the $model$ with $uniqueModelID = model.uniqueModelID$ and $false$ otherwise.\\
+		- It just has to check if $uniqueModelIDRankingMap$ contains the key $uniqueModelID$.\\
+		- Complexity: $O(1)$.
+		
+		\item \textbf{getScoreByUniqueModelID(modelID)}\\
+		- Returns the score of $model$ in $rankerList$ with $uniqueModelID = model.uniqueModelID$ if $rankerList$ contains $model$ and $-1$ otherwise.\\
+		- It just has to check if $rankerMap$ contains $uniqueModelID$ then $model.score$ will be returned. $model$ is the value of $uniqueModelID$ in  $rankerMap$.\\
+		- Complexity: O(1).
+		
+		\item \textbf{updateScoreByUniqueModelID(uniqueModelID, newScore)}\\
+		- Sets the score of of $model$ in $rankerList$ with $uniqueModelID = model.uniqueModelID$ to $newScore$ if $rankerList$ contains $model$ and does nothing otherwise.\\
+		- It looks up the value of the key $uniqueModelID$ in $rankerMap$ and sets its score to $newScore$.\\
+		- Complexity: $O(1)$.
+		
+		\item \textbf{swap(uniqueModelID1, uniqueModelID2)}\\
+		- Swaps the models with $uniqueModelID1$ respectively $uniqueModelID2$ in the ranker.\\
+		- It swaps $uniqueModelID1$ and $uniqueModelID2$ in $uniqueModelIDList$,\\
+		and updates the rankings in $uniqueModelIDRankingMap$ by swapping the values of the keys $uniqueModelID1$ and $uniqueModelID2$ in $modelIDRankingMap$.\\
+		- Complexity: $O(1)$. 
+		
+		\item \textbf{makeResultsListRankBased()}\\
+		- Returns a ranker list after applying a rank based aggregation method.\\
+		- Sets the scores of the models to -1.\\
+		- The models in ranker list have the order of their corresponding model Ids in $uniqueModelIDList$.\\
+		- Complexity: $O(n)$.
+		
+		\item \textbf{makeResultsListRankBased()}\\
+		- Returns a ranker list after applying a score based aggregation method.\\
+		- Sorts the $uniqueModelIDList$ wrt to the scores.\\
+		- The models in ranker list have the order of their corresponding model Ids in $uniqueModelIDList$.\\
+		- Complexity: $O(n)$.
+		
+		\item \textbf{sortModelsByScore()}\\
+		- Sorts the models by their scores:\\
+		- Creates a hashmap with entries $<score, uniqueModelId>$ and sorts this wrt the scores.\\
+		- Returns a list with the values.\\
+		- Complexity: $O(n log(n))$ 
+		
+		\item \textbf{setScoresToNAN()}\\
+		- Sets the scores of all models in the ranker to -1.\\
+		- This method is useful in the case when the scores become irrelevant and we are just interested in the rankings (Rank based aggregation methods).\\
+		- Complexity: $O(n)$.
+	\end{itemize}
+	
+	
+
+\end{document}

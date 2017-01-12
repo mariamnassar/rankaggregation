@@ -1,0 +1,250 @@
+\documentclass{article}
+
+\usepackage[utf8] {inputenc}
+\usepackage[paper=a4paper,top=25mm,bottom=25mm,right=25mm, left=25mm]{geometry}
+\usepackage{cite}
+\usepackage       {scrpage2}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage[ruled]{algorithm2e}
+\usepackage{multirow}
+%
+
+\setlength{\parindent}{0pt}
+\date{\vspace{-5ex}}
+
+\begin{document}
+
+	\title{Rank Aggregation Methods}
+	\maketitle
+	\section{Introduction}
+	In all the methods listed below the input (or a part of it) will be a list of rankers $RList = \{R^1,...,R^s\}$ and an initial 				aggregate ranker $R^A$. The algorithms listed below will change the aggregate ranker by applying a rank aggregation method on 	it. The changed $R^A$ will be returned.\\
+	
+	We will always use $R^i$ for some $R^i \in RList$.\\
+	We can also assume that $R^A$ represents the universe of models. This means that $\forall x \in R^i \Rightarrow x \in R^A$.\\
+	$r_R(m) := $ the ranking of the model $m$ in the ranker $R$.\\
+	As the rankers are no full lists we will assume that, if one ranker does not contain a model, then the ranking of this model in this ranker is infinity: $if x \notin R^i \Rightarrow r_{R_i(x)} = MAX\_INT $.\\
+	$m1 <_{R} m2 :\Leftrightarrow r_R(m1) < r_R(m2)$.\\ 
+	We assume that $s$, the number of rankers, is constant.\\
+	$n := |R^A|$.
+	For all the complexities, we assume using the RanklerHandler to deal with the rankers.
+ 	 
+	
+	\section{Adjacent Pairs(ADJ) \cite{A} \cite{LK}} 
+	 
+	  Given input rankers $R^1,...,R^s$ and an initial aggregate ranker $R^A$.\\
+	  We apply local optimization to $R^A$. This algorithm aims to improve the average distance between $R^A$ and $
+	  R^1,...,R^s$.\\
+	  
+	  \begin{itemize}
+	  
+	  	\item \textbf{Distance}\\
+	  	 This function measures the distance between two rankers, $R^A$ and $R^i$. The method used here is Kendall-Tau:\\
+	  	 $disance(R^A, R^i) = |\{(m1, m2): m1 <_{R^A} m2 ~ \& ~ m1 >_{R^i} m2 \}|$.\\
+	  	 For performance reasons, we will use the following definition of $distance$:\\
+	  	 $disance(R^A, R^i) = distance_1 + distance_2$ \\
+	  	 $distance_1 = |\{(m1, m2): m1 <_{R^A} m2 ~ \& ~ m1 >_{R^i} m2 ~ \& ~ m1, m2 \in R^A ~ \& ~ m1, m2 \in R^i\}|$\\ 
+	  	 $distance_2 = |\{(m1, m2): m1 <_{R^A} m2 ~ \& ~ m1, m2 \in R^A ~ \& ~ m1 \notin R^i\}|$\\
+	  	 $distance_1$: for each pair of models $(m1, m2)$ in $R^i$ with  $m1 <_{R^i} m2$, the method will test if $m1 <_{R^A} m2$, then $distance_1$ will be increased.\\
+	  	 The complexity of $distance_1$ is $O(n_i^2)$. $n_i$ is the size of $R_i$ and we can assume that $n_i \leq$ the size of $R^A$.\\
+	  	 $distance_2$ computes for each model $m$ in $R^A$ the number of models better ranked than $m$ (in $R^A$), which are not contained in $R^i$.\\
+	  	 The complexity of $distance_2$ is $O(n)$.\\
+	  	 The complexity of $distance$ is $O(n^2)$.\\
+	  	 	  	 
+	  	 \begin{algorithm}
+	       $distance \leftarrow 0$\\
+	       $sumOfModelsNotInRi \leftarrow 0$\\
+	      \tcp{$distance_2$}
+	      \ForEach {$m \in R^A$} {
+	      	\If { $m \in R^i$ }
+	      		{$distance \leftarrow distance + sumOfModelsNotInRi$}
+	      	\Else
+	      		{$sumOfModelsNotInRi ++$}
+	      	}
+	      	
+	      \tcp{$distance_1$}
+	      \ForEach{$m1 \in R^i$} {
+	      	\ForEach{$m2 \in R^i, m1 <_{R^i} m2$}{
+	      		\If {$m1 >_{R^A} m2$}
+	      			{$distance++$}
+	      	}
+	      }
+	      \Return {$distance$}	
+	      \caption{distance($R^A, R^i$)}
+	     \end{algorithm}
+	   
+	  \item \textbf{Average distance}\\
+	  	The average distance between $R^A$ and $\{R^1,...,R^s\}$ is defined as follows:\\
+	  	$average~ distance = 1/s * \sum_{i = 1}^{s} distance(R^i, R^A)$\\
+	  	Yet, we define a modified average distance method, $distanceAvg$, which computes the average distance after swapping two adjacent models in $R^A$. $distanceAvg$ will modify the distances between $R^A$ and each $R^i$ as well.\\
+	  	The input of $distanceAvg$ is:\\
+	  	- $R^A$ and $\{R^1,...,R^s\}$\\
+	  	- $m_i$ and $m_{i+1}$. After swapped, $m_i <_{R_1^A} m_{i+1}$. $R^A_1$ is $R^A$ after being swapped.\\
+	  	- $distanceToRankers = \{distance(R^A, R^i): i = 1, 2, .., s\}$\\
+	  	We know that $\forall m \in R^A~ \forall m* \in R^A,~ m* \neq m_i, m_{i+1}$: $m <_{R^A} m* \Rightarrow m <_{R^A_1} m*$. So the only pair that could change $distance(R_1^A, R^i)$ is $(m_i, m_{i+1})$.\\
+	  	For each $R^i$, $distanceAvg$ checks if $m_i <_{R^i} m_{i+1}$ then $distance(R^A, R^i)$ should be decreased and increased otherwise. $distanceAvg$ sums then the updated distances and returns this sum divided by $s$.\\
+	  	The complexity of $distanceAvg$ is $O(1)$
+	  	
+	  	\begin{algorithm}
+	  	\tcp{$distanceToRankers = \{distance(R^A, R^i): i = 1, 2, .., s\}$}
+	  	$distanceAvg \leftarrow 0$\\
+	  	\ForEach {$R^i \in \{R^1,...,R^s\}$}{
+	  		\If {$m_i >_{R^i} m_{i+1} $} 
+	  			{$distanceToRankers(i)++;$}
+	  		\Else {$distanceToRankers(i)--;$}
+	  		$distanceAvg \leftarrow distanceAvg + distanceToRankers(i)$\\
+	  		}
+	  	\Return {$\frac {distanceAvg} {s}$}	
+	  	\caption{distanceAvg($R^A, \{R^1,...,R^s\}, m_i, m_{i+1}, distanceToRankers$)}
+	  	\end{algorithm}
+	  	
+	  \item \textbf{Adjacent Pairs (ADJ)}\\
+	   This will swap each model with the next in $R^A$ and then compute the average distance between the modified $R^A$ and $RList$. If the average distance has been improved, then the models will be permanently swapped, otherwise they will be swapped back. This procedure will be repeated 100 times.\\
+	   The complexity of $ADJ$ is $O(n^2)$.\\
+	  
+	   \begin{algorithm}[H]
+	    $count \leftarrow 0$\\
+	    $distanceMin \leftarrow 0$\\
+	    \ForEach {$R^i \in \{R^1,...,R^s\}$} {
+	   	 $distanceToRankers(i) = distance(R^A, R^i)$\\
+	   	 $distanceMin \leftarrow distanceMin + distanceToRankers(i)$
+	    }
+	    $distanceMin \leftarrow \frac {distanceMin} {s}$\\
+	    \While {$count < 100$} {
+	   	  \ForEach {$m_i \in R^A$} {
+	   	 	$R^A.swap(m_i, m_{i+1})$\\
+	   	 	$distanceToRankers1 \leftarrow distanceToRankers$\\
+	   	 	$distAvg = distanceAvg(R^A, \{R^1,...,R^s\}, m_i, m_{i+1}, distanceToRankers1)$
+	   	  }
+	   	  \If {$distAvg < distanceMin$} {
+	   	 	$distanceMin \leftarrow distAvg$\\
+	   	 	$distanceToRankers \leftarrow distanceToRankers1$\\
+	   	  }
+	   	  \Else  
+	   	 	{\tcp {swap back} $R^A.swap(m_i, m_{i+1)}$} 
+	    }
+	    \Return $R^A$
+	    \caption{ADJ($R^A, \{R^1,...,R^s\}$)}
+	   \end{algorithm}
+	  	
+	  \end{itemize}
+	 
+	 
+	\section{CombMNZ \cite{A}}
+		Given input rankers $R^1,...,R^s$ and an initial aggregate ranker $R^A$.\\
+	    This algorithm first computes the normalized Borda rank of each object and then multiplies this value by 
+	    the number of times the object appears in the different input rankers.\\
+	    We compute the aggregate score $sc(m)$ for each model $m$. The set of aggregate scores are then sorted 
+	    in decreasing order:\\
+	    $CombMNZ: sc(m) = h({R^1, .., R^s}, m) * \sum_{i = 1}^{s}brn^i(m)$\\
+	    $h({R^1, .., R^s}, m)$ denotes the number of times model $m$ appears in the rankers.\\	    
+	    Borna rank normalization: 
+	    $for~ m \in R^A:$
+	    \[brn^i(m) =\begin{cases} 
+         1 - \frac{r_{R^i}(m) - 1}{|R^A|} & if ~ m \in R^i \\
+         0 & otherwise
+         \end{cases} \]
+         
+		Further, we compute the procent score for each model as follows:\\
+		$scoreProcent(m) = \frac{sc(m)}{maxPossibleScore}$\\
+		$maxPossibleScore$ denotes the greatest value $sc(m)$ could ever have. This is the case, in which $m$ has the best ranking, namely $1$, in each $R^i$.\\
+		$sc(m) \leq max(h({R^1, .., R^s}, m)) * \sum_{i = 1}^s max(brn^i(m)) = s * \sum_{i = 1}^s max(brn^i(m))$
+	    $ = s * \sum_{i = 1}^{i = s} (1 - \frac{1 - 1}{|R^A|}) = s * s$ \\
+	    $ \Rightarrow maxPossibleScore = s ^ 2$  \\
+	    The complexity of $combMNZ$ is $O(n)$.\\
+	          
+         
+        \begin{algorithm}[H]
+	    $maxPossibleScore \leftarrow s^2$\\
+	   	
+	   	\ForEach {$m \in R^A$} {
+	   		$h \leftarrow 0$\\
+	   		$brnSum \leftarrow 0$\\
+	   		\ForEach {$R^i \in \{R^1,...,R^s\}$} {
+	   			\If {$m \in R^i$}{
+	   				$h++$\\
+	   				$brnSum = 1 - \frac{r_{R^i}(m) - 1}{|R^A|}$
+	   				}
+	   		}
+	   		$sc(m) = brnSum * h$\\
+	   		$scoreProcent(m) = \frac {sc(m)}{maxPossibleScore}$\\
+	    }
+	    \Return $R^A$
+	    \caption{combMNZ($R^A, \{R^1,...,R^s\}$)}
+	   \end{algorithm}
+	   
+         
+    \section{Local Kemenization \cite{LK}}
+      	Given input rankers $R^1,...,R^s$ and an initial aggregate ranker $R^A$.\\
+        We build a locally Kemeny optimal aggregated ranker:\\ 
+        For each model $m_i$ in $R^A$ and for each of the better-ranked models in $R^A$, $m_j$, we test if the majority of the rankers in $RList$ rank $m_i$ better than $m_j$, then we swap $m_i$ and $m_j$.\\
+        The complexity of $localKemenization$ is $O(n^2)$.
+        
+        \begin{algorithm}[H]
+	   	 \ForEach {$m_i \in R^A$} {
+	   		\ForEach {$m_j \in R^A$ with $m_j <_{R^A} m_i$}{
+	   			$pro \leftarrow 0$\\
+	   			$con \leftarrow 0$\\
+	   			\ForEach {$R^i \in \{R^1,...,R^s\}$} {
+	   				\If {$m_j <_{R^i} m_i$}{
+	   					$pro++$
+	   				}
+	   				\Else {$con++$}
+	   			}
+	   		\If {$con > pro$} {$R^A.swap(m_i, m_j)$}
+	   		\Else {break}
+	   		}
+	    }
+	    \Return $R^A$
+	    \caption{lokalKemenization($R^A, \{R^1,...,R^s\}$)}
+	   \end{algorithm}
+      
+        
+    \section{Supervised Local Kemenization \cite{SLK}}
+      	Given input rankers $R^1,...,R^s$, their weights $w_1,..,w_s$ and an initial aggregate ranker $R^A$.\\
+       
+       	Initialize $n*n$ matrix $M$ with $M(x, y) = false$
+       	$\forall (m1, m2) \in R^A$, compute:\\    
+       	$score(m1, m2) = \sum_{i = 1}^s (w_i * (m1 \prec m2))$ where\\
+       	\[m1 \prec m2 =\begin{cases} 
+         	0 & if~ m1 >_{R^i} m2 \\
+         	1 & if~ m1 <_{R^i} m2
+         \end{cases} \]
+       	If $score(m1, m2) > 0.5 * \sum_{i = 1} ^ s w_i$, insert $M(m1, m2) = true$ and $M(m2, m1) = false$\\
+       	For $m1, m2 \in R^A$  with $m1 <_{R^A} m2$ $swap(m1, m2)$ if $M(m1, m2) = false$\\
+       	$R^A$ is the final aggregation.\\
+       	The complexity of $supervisedLocalKemenization$ is $O(n^2)$.
+       	
+       	\begin{algorithm}[H]
+       	 $m[i][j] = false \forall i, j < |R^A|$\\
+       	 $weightSum = \sum_{i=1}^s w_i$\\
+	   	 \ForEach {$m_i \in R^A$} {
+	   		\ForEach {$m_j \in R^A$ with $m_j >_{R^A} m_i$}{
+	   			$score \leftarrow 0$\\
+	   			\ForEach {$R^i \in \{R^1,...,R^s\}$} {
+	   				\If {$m_j >_{R^i} m_i$}{
+	   					$score \leftarrow score + w_i$
+	   				}
+	   			}
+	   		\If {$score > 0.5 * weightsSum$} {
+	   			$M[i][j] = true$\\
+	   			$M[j][i] = false$\\
+	   			}
+	   		}
+	    }
+	    \ForEach {$m_i \in R^A$} {
+	   		\ForEach {$m_j \in R^A$ with $m_j >_{R^A} m_i$}{
+	   			\If {$M[i][j] == false$} {
+	   				$R^A.swap(m_i, m_j)$\\
+	   			}
+	   		}
+	   	}
+	    \Return $R^A$
+	    \caption{supervisedLokalKemenization($R^A, \{R^1,...,R^s\}$)}
+	   \end{algorithm}
+       
+\newpage  
+\bibliography{References}
+\bibliographystyle{plain}	      
+\end{document}
