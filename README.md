@@ -6,6 +6,8 @@ In *documentationTex/RankAggregationMethods.tex*, the used rank aggregation meth
   * **CombMNZ**
   * **Local Kemenization**
   * **Supervised Local Kemenization**
+
 These methods have been adapted for our use case to make the rank aggregation faster.
+
 Furthermore, **RankerHandler** has been used. This is a data structure that makes dealing with rankers
 easier and faster for rank aggregation proposes. This is described in *documentationTex/RankerHandler.tex*.
